@@ -1,8 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import (Conv2D, Dense, DepthwiseConv2D,
-                                     GlobalAveragePooling2D, Layer,
-                                     LayerNormalization)
+
+from keras.layers import Conv2D, Dense, DepthwiseConv2D, Layer, LayerNormalization, GlobalAvgPool2D
 
 
 def drop_path(inputs, drop_prob, is_training):
@@ -45,10 +44,14 @@ class Block(Layer):
         layer_scale_init_value (float): Init value for Layer Scale. Default: 1e-6.
     """
 
-    def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6, prefix=''):
+    def __init__(self,
+                 dim,
+                 drop_path=0.,
+                 layer_scale_init_value=1e-6,
+                 prefix=''):
         super().__init__()
-        self.dwconv = DepthwiseConv2D(
-            kernel_size=7, padding='same')  # depthwise conv
+        self.dwconv = DepthwiseConv2D(kernel_size=7,
+                                      padding='same')  # depthwise conv
         self.norm = LayerNormalization(epsilon=1e-6)
         # pointwise/1x1 convs, implemented with linear layers
         self.pwconv1 = Dense(4 * dim)
@@ -60,10 +63,10 @@ class Block(Layer):
         self.prefix = prefix
 
     def build(self, input_shape):
-        self.gamma = tf.Variable(
-            initial_value=self.layer_scale_init_value * tf.ones((self.dim)),
-            trainable=True,
-            name=f'{self.prefix}/gamma')
+        self.gamma = tf.Variable(initial_value=self.layer_scale_init_value *
+                                 tf.ones((self.dim)),
+                                 trainable=True,
+                                 name=f'{self.prefix}/gamma')
         self.built = True
 
     def call(self, x, **kwargs):
@@ -96,42 +99,52 @@ class ConvNeXt(tf.keras.Model):
         head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
     """
 
-    def __init__(self, num_classes=1000,
-                 depths=None, dims=None, include_top=True,
-                 drop_path_rate=0., layer_scale_init_value=1e-6, head_init_scale=1.,
-                 ):
+    def __init__(
+        self,
+        num_classes=1000,
+        depths=None,
+        dims=None,
+        include_top=True,
+        drop_path_rate=0.,
+        layer_scale_init_value=1e-6,
+        head_init_scale=1.,
+    ):
         super().__init__()
         if dims is None:
             dims = [96, 192, 384, 768]
         if depths is None:
             depths = [3, 3, 9, 3]
         self.include_top = include_top
-        self.downsample_layers = []  # stem and 3 intermediate downsampling conv layers
+        self.downsample_layers = [
+        ]  # stem and 3 intermediate downsampling conv layers
         stem = tf.keras.Sequential([
             Conv2D(dims[0], kernel_size=4, strides=4, padding='same'),
-            LayerNormalization(epsilon=1e-6)]
-        )
+            LayerNormalization(epsilon=1e-6)
+        ])
         self.downsample_layers.append(stem)
         for i in range(3):
             downsample_layer = tf.keras.Sequential([
                 LayerNormalization(epsilon=1e-6),
-                Conv2D(dims[i + 1], kernel_size=2, strides=2, padding='same')]
-            )
+                Conv2D(dims[i + 1], kernel_size=2, strides=2, padding='same')
+            ])
             self.downsample_layers.append(downsample_layer)
 
-        self.stages = []  # 4 feature resolution stages, each consisting of multiple residual blocks
+        self.stages = [
+        ]  # 4 feature resolution stages, each consisting of multiple residual blocks
         dp_rates = [x for x in np.linspace(0, drop_path_rate, sum(depths))]
         cur = 0
         for i in range(4):
-            stage = tf.keras.Sequential(
-                [Block(dim=dims[i], drop_path=dp_rates[cur + j],
-                       layer_scale_init_value=layer_scale_init_value, prefix=f'block{i}') for j in range(depths[i])]
-            )
+            stage = tf.keras.Sequential([
+                Block(dim=dims[i],
+                      drop_path=dp_rates[cur + j],
+                      layer_scale_init_value=layer_scale_init_value,
+                      prefix=f'block{i}') for j in range(depths[i])
+            ])
             self.stages.append(stage)
             cur += depths[i]
 
         if self.include_top:
-            self.avg = GlobalAveragePooling2D()
+            self.avg = GlobalAvgPool2D()
             self.norm = LayerNormalization(epsilon=1e-6)  # final norm layer
             self.head = Dense(num_classes)
         else:
@@ -155,55 +168,55 @@ class ConvNeXt(tf.keras.Model):
 
 
 model_urls = {
-    "convnext_tiny_224": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_tiny_1k_224_ema.h5",
-    "convnext_small_224": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_small_1k_224_ema.h5",
-    "convnext_base_224": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_base_22k_1k_224.h5",
-    "convnext_base_384": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_base_22k_1k_384.h5",
-    "convnext_large_224": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_large_22k_1k_224.h5",
-    "convnext_large_384": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_large_22k_1k_384.h5",
-    "convnext_xlarge_224": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_xlarge_22k_1k_224_ema.h5",
-    "convnext_xlarge_384": "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_xlarge_22k_1k_384_ema.h5",
+    "convnext_tiny_224":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_tiny_1k_224_ema.h5",
+    "convnext_small_224":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_small_1k_224_ema.h5",
+    "convnext_base_224":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_base_22k_1k_224.h5",
+    "convnext_base_384":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_base_22k_1k_384.h5",
+    "convnext_large_224":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_large_22k_1k_224.h5",
+    "convnext_large_384":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_large_22k_1k_384.h5",
+    "convnext_xlarge_224":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_xlarge_22k_1k_224_ema.h5",
+    "convnext_xlarge_384":
+    "https://github.com/bamps53/convnext-tf/releases/download/v0.1/convnext_xlarge_22k_1k_384_ema.h5",
 }
 
 model_configs = dict(
-    convnext_tiny=dict(
-        depths=[3, 3, 9, 3],
-        dims=[96, 192, 384, 768]
-    ),
-    convnext_small=dict(
-        depths=[3, 3, 27, 3],
-        dims=[96, 192, 384, 768]
-    ),
-    convnext_base=dict(
-        depths=[3, 3, 27, 3],
-        dims=[128, 256, 512, 1024]
-    ),
-    convnext_large=dict(
-        depths=[3, 3, 27, 3],
-        dims=[192, 384, 768, 1536]
-    ),
-    convnext_xlarge=dict(
-        depths=[3, 3, 27, 3],
-        dims=[256, 512, 1024, 2048]
-    ),
+    convnext_tiny=dict(depths=[3, 3, 9, 3], dims=[96, 192, 384, 768]),
+    convnext_small=dict(depths=[3, 3, 27, 3], dims=[96, 192, 384, 768]),
+    convnext_base=dict(depths=[3, 3, 27, 3], dims=[128, 256, 512, 1024]),
+    convnext_large=dict(depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536]),
+    convnext_xlarge=dict(depths=[3, 3, 27, 3], dims=[256, 512, 1024, 2048]),
 )
 
 
-def create_model(model_name='convnext_tiny_224', input_shape=(224, 224), num_classes=1000, include_top=True,
-                 pretrained=True, use_tpu=False, **kwargs):
+def create_model(model_name='convnext_tiny_224',
+                 input_shape=(224, 224),
+                 num_classes=1000,
+                 include_top=True,
+                 pretrained=True,
+                 use_tpu=False,
+                 **kwargs):
     cfg = model_configs['_'.join(model_name.split('_')[:2])]
-    net = ConvNeXt(num_classes, cfg['depths'],
-                   cfg['dims'], include_top, **kwargs)
+    net = ConvNeXt(num_classes, cfg['depths'], cfg['dims'], include_top,
+                   **kwargs)
     net(tf.keras.Input(shape=(*input_shape, 3)))
     if pretrained is True:
         url = model_urls[model_name]
-        pretrained_ckpt = tf.keras.utils.get_file(
-            f'{model_name}.h5', url, untar=False)
+        pretrained_ckpt = tf.keras.utils.get_file(f'{model_name}.h5',
+                                                  url,
+                                                  untar=False)
         if use_tpu:
             load_locally = tf.saved_model.LoadOptions(
                 experimental_io_device='/job:localhost')
-            net.load_weights(
-                pretrained_ckpt, options=load_locally, skip_mismatch=True)
+            net.load_weights(pretrained_ckpt,
+                             options=load_locally,
+                             skip_mismatch=True)
         else:
             net.load_weights(pretrained_ckpt, skip_mismatch=True, by_name=True)
 
